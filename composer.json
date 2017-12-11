@@ -1,0 +1,17 @@
+{
+    "name": "hellolindsay/freshbooks-cli",
+    "description": "A PHP client for the Freshbooks API",
+    "type": "library",
+    "keywords": ["freshbooks", "client"],
+    "homepage": "https://github.com/hellolindsay/freshbooks-cli",
+    "license": "MIT",
+    "require": {
+        "php": ">=5.4.0"
+    },
+    "autoload": {
+        "psr-0": {
+            "FreshbooksCLI\\": "src/",
+            "FreshbooksAPI\\": "src/"
+        }
+    }
+}
