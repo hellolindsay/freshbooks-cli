@@ -1,4 +1,4 @@
 #! /usr/bin/php
 <?php
 require_once "vendor/autoload.php";
-\FreshbooksCLI\Client::cli($argv);
+\FreshbooksCLI\CLI::cli($argv);
