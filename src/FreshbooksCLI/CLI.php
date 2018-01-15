@@ -19,11 +19,101 @@ class CLI {
   
     $api = CLI::get_freshbooks_api();
     $me = $api->get_user_me();
-    print "Me: "; 
-    print_r($me);
-    print "\n";
-    
+    $output = \FreshbooksCLI\Output::formatted_yaml($me);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;
+        
   }
+  public static function op_call($args=array()) {
+  
+    $api = CLI::get_freshbooks_api();
+    $clients = $api->make_call(current($args));
+    $output = \FreshbooksCLI\Output::formatted_yaml($clients);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }    
+  public static function op_curl($args=array()) {
+  
+    $api = CLI::get_freshbooks_api();
+    $clients = $api->fetch_response(current($args));
+    $output = \FreshbooksCLI\Output::formatted_yaml($clients);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }    
+  public static function op_client($args=array()) {
+  
+    $api = CLI::get_freshbooks_api();
+    $clients = $api->get_client($args);
+    $output = \FreshbooksCLI\Output::formatted_yaml($clients);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }    
+  public static function op_clients() {
+  
+    $api = CLI::get_freshbooks_api();
+    $clients = $api->get_clients();
+    $output = \FreshbooksCLI\Output::formatted_yaml($clients);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }  
+  public static function op_project($args=array()) {
+  
+    $api = CLI::get_freshbooks_api();
+    $projects = $api->get_project($args);
+    $output = \FreshbooksCLI\Output::formatted_yaml($projects);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }      
+  public static function op_projects() {
+  
+    $api = CLI::get_freshbooks_api();
+    $projects = $api->get_projects();
+    $output = \FreshbooksCLI\Output::formatted_yaml($projects);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;    
+
+  }  
+  public static function op_task($args=array()) {
+  
+    $api = CLI::get_freshbooks_api();
+    $tasks = $api->get_task($args);
+    $output = \FreshbooksCLI\Output::formatted_yaml($tasks);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;  
+      
+  }     
+  public static function op_tasks() {
+  
+    $api = CLI::get_freshbooks_api();
+    $tasks = $api->get_tasks();
+    $output = \FreshbooksCLI\Output::formatted_yaml($tasks);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;    
+
+  }    
+  public static function op_times() {
+  
+    $api = CLI::get_freshbooks_api();
+    $time_entries = $api->get_time_entries();
+    $output = \FreshbooksCLI\Output::formatted_yaml($time_entries);
+    $output = \FreshbooksCLI\Output::border_box($output);
+    print $output;    
+
+  }    
+  public static function op_invoices() {
+
+    $api = CLI::get_freshbooks_api();
+    $invoices = $api->get_invoices();
+    $output = \FreshbooksCLI\Output::formatted_yaml($invoices);
+    //$output = \FreshbooksCLI\Output::border_box($output);
+    print $output;    
+
+  }      
   public static function get_freshbooks_api() {
     
     // load config values

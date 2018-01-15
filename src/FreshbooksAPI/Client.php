@@ -30,32 +30,245 @@ class Client {
     return $this->oauth;
       
   }
-  public function get_user_me() {
-  
+  public function fetch_response($url=null) {
+    
     // get access token
     $access_token = @$this->oauth['access_token'] ?: null;
     if (empty($access_token)) throw new \Exception("No access token set");
 
-    // make users/me call
-    $response = \FreshbooksAPI\Curl::curl_request('GET',"https://api.freshbooks.com/auth/api/v1/users/me",
+    // prepend api location if :// not in url
+    if (!preg_match('/\:\/\//',$url)) {
+      $url = 'https://api.freshbooks.com/'.ltrim($url,'/');
+    }
+    
+    // replace account id and business id if in url
+    if (preg_match('/account_id/',$url) || preg_match('/business_id/',$url)) {
+      $me = Client::get_user_me();
+      $account_id = $me['response']['roles'][0]['accountid'];
+      $business_id = $me['response']['business_memberships'][0]['business']['id'];  
+      $url = strtr($url,array(
+        'account_id' => $account_id,
+        'business_id' => $business_id,
+      ));      
+    }
+
+    // make users/clients call
+    $response = \FreshbooksAPI\Curl::curl_request('GET',$url,
       // data
       null,
       // headers
       array(
         "Authorization: Bearer ".$access_token,
         "Api-Version: alpha",
-        "Content-Type: application/json",
-      )
-    );  
-    
-    // return decoded response
+        "Content-Type: Accept",
+    ));  
+    return $response;
+  }    
+  public function make_call($url=null) {  
+    $response = Client::fetch_response($url);
     $decoded = json_decode($response['response']['content'],TRUE);
+    return $decoded;
+  }
+  public function get_user_me() {
+
+    // make users/me call
+    $decoded = Client::make_call("auth/api/v1/users/me");
     if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
-    
-    // return decoded data
     return $decoded;
     
   }    
+  public function get_client($keys=array()) {
+    $clients = Client::get_clients();
+    $selected = array();
+    foreach($clients as $client) {
+      foreach($keys as $key) {
+        if ($client['key']==$key) {
+          $selected[$key] = $client;
+        }
+      }
+    }
+    return $selected;
+  }
+  public function get_clients() {
+    $clients_list = array();
+    if (empty($clients_list)) {
+    
+      // make call
+      $decoded = Client::make_call("accounting/account/account_id/users/clients");
+      if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
+
+      // format clients list
+      if (is_array($decoded['response']['result']['clients'])) {
+        foreach($decoded['response']['result']['clients'] as $client) {
+          $key = strtolower(preg_replace('/[^a-z0-9]/i','',$client["organization"]));
+          $clients_list[ $key ] = array(
+            'key' => $key,
+            'label' => $client["organization"],
+            'id' => $client["id"],
+            'organization' => $client["organization"],
+            'shortname' => $client["organization"],
+            'fullname' => $client["organization"],
+            'contact' => $client["fname"].' '.$client["lname"],
+            'address' => $client["p_street"].', '.$client["p_city"].', '.$client["p_province"].', '.$client["p_code"]
+            //'data' => $client,
+          );
+        }
+      } else {
+        throw new \Exception(print_r($decoded,TRUE));
+      }
+      
+    }
+    return $clients_list;
+    
+  }  
+  public function get_project($keys=array()) {
+    $projects = Client::get_projects();
+    $selected = array();
+    foreach($projects as $project) {
+      foreach($keys as $key) {
+        if ($project['key']==$key) {
+          $selected[$key] = $project;
+        }
+      }
+    }
+    return $selected;
+  }
+  public function get_projects() {
+    static $projects_list = array();
+    if (empty($projects_list)) {
+
+      // make call
+      $decoded = Client::make_call("projects/business/business_id/projects");
+      if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
+      
+      // format projects list
+      if (is_array($decoded['projects'])) {
+        foreach($decoded['projects'] as $project) {
+          $key = strtolower(preg_replace('/[^a-z0-9]/i','',$project["title"]));
+          $unique_key = $key.'-'.$project["client_id"];
+          $projects_list[$unique_key] = array(
+            'key'=>$key,
+            'unique'=>$unique_key,
+            'label'=>$project["title"],
+            'id'=>$project["id"],
+            'title'=>$project["title"],
+            'client_id'=>$project["client_id"],
+          );
+        }
+      } else {
+        throw new \Exception(print_r($decoded,TRUE));
+      }
+      
+    }
+    return $projects_list;
+  }    
+  public function get_task($keys=array()) {
+    $tasks = Client::get_tasks();
+    $selected = array();
+    foreach($tasks as $task) {
+      foreach($keys as $key) {
+        if ($task['key']==$key) {
+          $selected[$key] = $task;
+        }
+      }
+    }
+    return $selected;
+  }  
+  public function get_tasks() {
+
+    // make call
+    $decoded = Client::make_call("accounting/account/account_id/projects/tasks");
+    if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
+    
+    // format tasks list
+    $tasks_list = array();
+    if (is_array($decoded['response']['result']['tasks'])) {
+      foreach($decoded['response']['result']['tasks'] as $task) {
+        $key = strtolower(preg_replace('/[^a-z0-9]/i','',$task["tname"]));
+        $tasks_list[$key] = array(
+          'key'=>$key,
+          'label'=>$task["tname"],
+          'id'=>$task["id"],
+          'tname'=>$task["tname"],
+        ); 
+      }
+    } else {
+      throw new \Exception(print_r($decoded,TRUE));
+    }
+    return $tasks_list;
+  }      
+  public function get_time_entries($options=array()) {
+    
+    // prepare params
+    $params = array();
+    //if (!empty($options['since'])) $params[] = "started_from=".date('Y-m-d\TH:i:s.000\z',$options['since']);
+    //if (!empty($options['until'])) $params[] = "started_to=".date('Y-m-d\TH:i:s.000\z',$options['until']);;
+    //if (!empty($options['client'])) $params[] = "client_id=".$clients[$options['client']]['id'];
+
+    // make call
+    $decoded = Client::make_call("timetracking/business/business_id/time_entries?$params");
+    if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
+
+    // format time entries
+    $time_entries_list = array();
+    if (is_array($decoded['time_entries'])) {
+      foreach($decoded['time_entries'] as $time) {
+        $date = current(explode('T',$time["started_at"]));
+        $timestamp = strtotime($time["started_at"]);
+        $started_at = date('Y-m-d H:i:s',$timestamp);
+        $start_date = date('Y-m-d',$timestamp);
+        $start_time = date('H:i',$timestamp);
+        $hours = round($time["duration"] / 60.0 / 60.0,2);
+        $title = current(explode('.',$time["note"],2));
+        $note = next(explode('.',$time["note"],2));
+        // $client = Client::get_client(array('id'=>$time['client_id']));
+        // $project = Client::get_project(array('id'=>$time['project_id']));
+        // $task = Client::get_task(array('id'=>$time['task_id']));
+        $row = array();
+        $row['date'] = $start_date;
+        $row['time'] = $start_time;
+        $row['hours'] = $hours;
+        $row['title'] = $title;
+        $row['client'] = $client['organization'];
+        $row['project'] = $project['title'];
+        $row['task'] = $task['tname'];
+        //$row['note'] = $note;
+        $time_entries_list[$timestamp.'-'.microtime()] = $row; //$date.' '.$title.' ('.$hours.'h) ('.$time["id"].')';
+      }
+    } else {
+      throw new \Exception(print_r($decoded,TRUE));
+    }
+    
+    // return list
+    ksort($time_entries_list);
+    $time_entries_list = array_values($time_entries_list);
+    return $time_entries_list;
+    
+  }  
+  public function get_invoices() {
+
+    // make call
+    $decoded = Client::make_call("accounting/account/account_id/invoices/invoices");
+    if (!empty($response['error'])) throw new \Exception(print_r($decoded,TRUE));
+    
+    // format invoices list
+    $invoices_list = array();
+    if (is_array($decoded['response']['result']['invoices'])) {
+      foreach($decoded['response']['result']['invoices'] as $invoice) {
+        $key = strtolower(preg_replace('/[^a-z0-9]/i','',$invoice["tname"]));
+        $invoices_list[] = $invoice;
+        // $invoices_list[$key] = array(
+        //   'key'=>$key,
+        //   'label'=>$invoice["tname"],
+        //   'id'=>$invoice["id"],
+        //   'tname'=>$invoice["tname"],
+        // ); 
+      }
+    } else {
+      throw new \Exception(print_r($decoded,TRUE));
+    }
+    return $invoices_list;
+  }        
   public function connect() {
     
     // check if already connected
